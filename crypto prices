@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Crypto Information</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #15202b; /* Dark background color */
+            color: #ffffff; /* Light text color */
+        }
+
+        #cryptoCard {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #192734; /* Darker card background color */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 50px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #3498DB; /* Header color */
+        }
+
+        #cryptoChart {
+            height: 600px;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        /* Additional styles for form and card */
+        form {
+            margin-bottom: 20px;
+        }
+
+        label {
+            color: #ffffff; /* Light text color for labels */
+        }
+
+        .form-control {
+            background-color: #283C4C; /* Darker input background color */
+            color: #ffffff; /* Light text color for inputs */
+        }
+
+        .btn-primary {
+            background-color: #3498DB; /* Primary button color */
+            border-color: #3498DB;
+        }
+
+        .btn-primary:hover {
+            background-color: #2980B9; /* Darker color on hover */
+            border-color: #2980B9;
+        }
+    </style>
+</head>
+<body>
+    <div id="cryptoCard" class="card">
+        <h1 class="mb-4">Real-Time Crypto Information</h1>
+        <form>
+            <div class="form-group">
+                <label for="cryptoSymbol">Enter Cryptocurrency Symbol:</label>
+                <input type="text" class="form-control" id="cryptoSymbol" placeholder="e.g., bitcoin">
+            </div>
+            <button type="button" class="btn btn-primary" onclick="getCryptoInfo()">Get Info</button>
+        </form>
+        <div class="mt-4">
+            <p id="cryptoName" class="mb-2"></p>
+            <p id="cryptoSymbolDisplay" class="mb-2"></p>
+            <p id="cryptoPrice" class="mb-4"></p>
+            <canvas id="cryptoChart"></canvas>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        async function getCryptoInfo() {
+            const symbolInput = document.getElementById("cryptoSymbol");
+            const cryptoSymbol = symbolInput.value.toLowerCase();
+
+            try {
+                const response = await fetch(`https://api.coingecko.com/api/v3/coins/${cryptoSymbol}`);
+                const data = await response.json();
+
+                document.getElementById("cryptoName").innerText = `Name: ${data.name}`;
+                document.getElementById("cryptoSymbolDisplay").innerText = `Symbol: ${data.symbol.toUpperCase()}`;
+                document.getElementById("cryptoPrice").innerText = `Current Price: $${data.market_data.current_price.usd}`;
+
+                // Initialize the chart
+                const ctx = document.getElementById("cryptoChart").getContext("2d");
+                const chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Price (USD)',
+                            data: [],
+                            borderColor: '#ffffff', /* White color for the line */
+                            borderWidth: 2,
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        responsive: false,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                position: 'bottom',
+                                ticks: {
+                                    color: '#ffffff' /* White color for the x-axis labels */
+                                }
+                            },
+                            y: {
+                                ticks: {
+                                    color: '#ffffff' /* White color for the y-axis labels */
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Fetch historical prices for the last 7 days
+                const chartData = await fetchChartData(cryptoSymbol);
+
+                // Initial update of the chart
+                updateChart(chart, chartData);
+
+                // Set up real-time updates
+                setInterval(async () => {
+                    const newData = await fetchChartData(cryptoSymbol);
+                    updateChart(chart, newData);
+                }, 5000); // Update every 5 seconds
+            } catch (error) {
+                console.error("Error fetching cryptocurrency information:", error);
+                alert("Error fetching cryptocurrency information. Please check the symbol and try again.");
+            }
+        }
+
+        async function fetchChartData(symbol) {
+            const chartResponse = await fetch(`https://api.coingecko.com/api/v3/coins/${symbol}/market_chart?vs_currency=usd&days=7`);
+            const chartData = await chartResponse.json();
+            return {
+                timestamps: chartData.prices.map(entry => entry[0]),
+                prices: chartData.prices.map(entry => entry[1])
+            };
+        }
+
+        function updateChart(chart, newData) {
+            chart.data.labels = newData.timestamps;
+            chart.data.datasets[0].data = newData.prices;
+            chart.update();
+        }
+    </script>
+</body>
+</html>
